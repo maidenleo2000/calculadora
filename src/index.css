@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paleta clara (también se usa siempre en el presupuesto y al imprimir). */
+:root,
+.theme-light {
+  --page: 248 250 252;
+  --surface: 255 255 255;
+  --slate-50: 248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --indigo-50: 238 242 255;
+  --indigo-600: 79 70 229;
+  --indigo-700: 67 56 202;
+  --emerald-50: 236 253 245;
+  --emerald-600: 5 150 105;
+  --emerald-700: 4 120 87;
+  --emerald-800: 6 95 70;
+  --amber-50: 255 251 235;
+  --amber-200: 253 230 138;
+  --amber-700: 180 83 9;
+  --amber-800: 146 64 14;
+  --rose-50: 255 241 242;
+  --rose-600: 225 29 72;
+  color-scheme: light;
+}
+
+/* Paleta oscura: la escala de grises se invierte y los tonos suaves de acento se oscurecen. */
+@media screen {
+  .dark {
+    --page: 2 6 23;
+    --surface: 15 23 42;
+    --slate-50: 22 32 51;
+    --slate-100: 30 41 59;
+    --slate-200: 39 52 73;
+    --slate-300: 51 65 85;
+    --slate-400: 100 116 139;
+    --slate-500: 148 163 184;
+    --slate-600: 203 213 225;
+    --slate-700: 226 232 240;
+    --slate-800: 241 245 249;
+    --slate-900: 248 250 252;
+    --indigo-50: 30 27 75;
+    --indigo-600: 99 102 241;
+    --indigo-700: 165 180 252;
+    --emerald-50: 6 44 38;
+    --emerald-600: 52 211 153;
+    --emerald-700: 110 231 183;
+    --emerald-800: 167 243 208;
+    --amber-50: 42 26 5;
+    --amber-200: 120 53 15;
+    --amber-700: 251 191 36;
+    --amber-800: 252 211 77;
+    --rose-50: 59 10 20;
+    --rose-600: 251 113 133;
+    color-scheme: dark;
+  }
+  .dark .theme-light {
+    color-scheme: light;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
