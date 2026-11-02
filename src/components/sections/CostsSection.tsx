@@ -3,7 +3,7 @@ import type { CalcResult } from '../../lib/calc';
 import { useMoney } from '../../lib/money';
 import { uid } from '../../lib/storage';
 import type { CostItem, Currency, PricingSettings, ProjectState, Recurrence, Updater } from '../../types';
-import { Button, Card, NumberField, Select, Toggle } from '../ui';
+import { Button, Card, NumberField, Segmented, Select, Toggle } from '../ui';
 
 export function CostsSection({ state, set, result }: { state: ProjectState; set: Updater; result: CalcResult }) {
   const money = useMoney();
@@ -109,10 +109,20 @@ export function CostsSection({ state, set, result }: { state: ProjectState; set:
       </Card>
 
       <Card title="Imprevistos, margen y redondeo" icon={<Percent className="h-4 w-4" />} subtitle="Distinguí costo (imprevistos), ganancia (margen) y redondeo.">
+        {state.estimationMode === 'tasks' && <div className="mb-5 space-y-3">
+          <p className="text-sm font-medium text-slate-700">Costos de gestión / ganancia</p>
+          <Segmented value={state.taskPricing.managementMode} onChange={(managementMode) => set((s) => ({ ...s, taskPricing: { ...s.taskPricing, managementMode } }))}
+            options={[{ value: 'percentage', label: 'Porcentaje sobre costos' }, { value: 'fixed', label: 'Monto fijo' }]} />
+          {state.taskPricing.managementMode === 'fixed' && <>
+            <NumberField label={`Gestión / ganancia fija (${state.currency.base})`} value={state.taskPricing.managementFixed} onChange={(managementFixed) => set((s) => ({ ...s, taskPricing: { ...s.taskPricing, managementFixed } }))} />
+            <p className="text-xs text-slate-500">Recomendado: monto fijo. Mínimo: sin ganancia. Premium: monto fijo más el porcentaje premium sobre los costos elegidos.</p>
+          </>}
+        </div>}
         <div className="grid gap-4 sm:grid-cols-3">
           <NumberField label="Reserva para imprevistos" suffix="%" value={pr.contingencyPct} max={100}
             hint="Costo: cubre el error de estimación de horas. Se calcula sobre el costo de desarrollo." onChange={(v) => setPricing({ contingencyPct: v })} />
           <NumberField label="Margen recomendado" suffix="%" value={pr.marginPct} max={500}
+            disabled={state.estimationMode === 'tasks' && state.taskPricing.managementMode === 'fixed'}
             hint="Ganancia sobre el costo (markup), además de tu ingreso deseado." onChange={(v) => setPricing({ marginPct: v })} />
           <NumberField label="Margen premium" suffix="%" value={pr.premiumMarginPct} max={500}
             hint="Para clientes que valoran prioridad, experiencia o exclusividad." onChange={(v) => setPricing({ premiumMarginPct: v })} />

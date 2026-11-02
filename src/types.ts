@@ -112,6 +112,11 @@ export interface CurrencySettings {
 }
 
 export interface QuoteInfo {
+  providerAddress: string;
+  providerTaxId: string;
+  clientAddress: string;
+  clientTaxId: string;
+  clientPhone: string;
   providerName: string;
   providerContact: string;
   clientName: string;
@@ -133,6 +138,10 @@ export interface QuoteInfo {
 
 export interface ProjectState {
   version: 1;
+  estimationMode: 'automatic' | 'tasks';
+  tasks: TaskEstimate[];
+  taskPricing: TaskPricing;
+  saas: SaaSSettings;
   projectType: ProjectTypeId;
   baseHours: PhaseHours;
   scope: Scope;
@@ -151,3 +160,43 @@ export interface ProjectState {
 }
 
 export type Updater = (fn: (s: ProjectState) => ProjectState) => void;
+
+export interface TaskEstimate {
+  id: string;
+  phase: PhaseId;
+  name: string;
+  method: 'fixed' | 'pert';
+  hours: number;
+  optimistic: number;
+  probable: number;
+  pessimistic: number;
+  /** null usa la tarifa base del proyecto. Importes en moneda base. */
+  hourlyRate: number | null;
+  notes: string;
+}
+
+export interface TaskPricing {
+  useUniformRate: boolean;
+  riskHours: number;
+  riskHourlyRate: number | null;
+  managementMode: 'percentage' | 'fixed';
+  managementFixed: number;
+  discountPct: number;
+  vatPct: number;
+}
+
+export interface SaaSSettings {
+  useProjectCost: boolean;
+  developmentCost: number;
+  recoveryMonths: number;
+  clients: number;
+  infrastructureMonthly: number;
+  supportHours: number;
+  supportHourlyRate: number;
+  markupPct: number;
+  extraHours: number;
+  extraHourlyRate: number;
+  otherExtras: number;
+  rounding: number;
+  plans: { id: string; name: string; variableCost: number }[];
+}

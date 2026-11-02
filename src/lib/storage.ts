@@ -36,6 +36,10 @@ export function normalize(input: unknown): ProjectState | null {
   return {
     ...d,
     ...s,
+    estimationMode: s.estimationMode === 'tasks' ? 'tasks' : 'automatic',
+    tasks: Array.isArray(s.tasks) ? s.tasks : [],
+    taskPricing: { ...d.taskPricing, ...s.taskPricing },
+    saas: { ...d.saas, ...s.saas, plans: Array.isArray(s.saas?.plans) ? s.saas.plans : d.saas.plans },
     scope: { ...d.scope, ...s.scope },
     baseHours: { ...d.baseHours, ...s.baseHours },
     manualAdjust: { ...d.manualAdjust, ...s.manualAdjust },

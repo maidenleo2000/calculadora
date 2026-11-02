@@ -45,13 +45,14 @@ export function Summary({ state, set, result }: { state: ProjectState; set: Upda
   const sc = result.selected;
   const pr = state.pricing;
   const taxPct = state.rate.taxRate;
+  const fixedManagement = state.estimationMode === 'tasks' && state.taskPricing.managementMode === 'fixed';
 
   return (
     <aside className="space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-surface shadow-sm">
         <div className="rounded-t-2xl bg-gradient-to-br from-sky-600 via-indigo-600 to-violet-700 p-5 text-white">
           <div className="text-xs font-medium uppercase tracking-wider text-indigo-100">Precio final del proyecto</div>
-          <div className="mt-1 text-3xl font-bold tabular-nums">{money.fmt(sc.price)}</div>
+          <div className="mt-1 text-3xl font-bold tabular-nums">{money.fmt(sc.price, 2)}</div>
           <div className="mt-1 text-sm text-indigo-100">
             {formatNumber(result.totalHours)} h · {money.fmt(sc.effectiveHourly, 2)}/h efectivo
           </div>
@@ -68,7 +69,7 @@ export function Summary({ state, set, result }: { state: ProjectState; set: Upda
         <div className="space-y-2 p-5">
           <Group title="Costos">
             <Line label="Desarrollo" color={PART_COLORS.labor} value={money.fmt(sc.labor)}
-              detail={`${formatNumber(result.totalHours)} h × ${money.fmt(result.rates.costRate, 2)}`} />
+              detail={state.estimationMode === 'tasks' && !state.taskPricing.useUniformRate ? 'Suma de tareas a su tarifa + horas de riesgo' : `${formatNumber(result.totalHours, 2)} h × ${money.fmt(result.rates.costRate, 2)}`} />
             <Line label="Reserva para imprevistos" color={PART_COLORS.contingency} value={money.fmt(sc.contingency)}
               detail={`${pr.contingencyPct}% del desarrollo`} />
             <Line label="Infraestructura, APIs y licencias" color={PART_COLORS.direct} value={money.fmt(sc.direct)}
@@ -76,8 +77,8 @@ export function Summary({ state, set, result }: { state: ProjectState; set: Upda
             <Line strong label="Costo total" value={money.fmt(sc.totalCost)} />
           </Group>
           <Group title="Ganancia">
-            <Line label="Margen" color={PART_COLORS.margin} value={money.fmt(sc.margin)}
-              detail={`${sc.marginPct}% sobre ${pr.marginOnDirectCosts ? 'costo total' : 'desarrollo + imprevistos'}`} />
+            <Line label={fixedManagement ? 'Gestión / ganancia fija' : 'Margen'} color={PART_COLORS.margin} value={money.fmt(sc.margin)}
+              detail={fixedManagement ? (sc.id === 'premium' ? `Monto fijo + ${sc.marginPct}% premium` : sc.id === 'minimum' ? 'Sin ganancia' : 'Monto fijo configurado') : `${sc.marginPct}% sobre ${pr.marginOnDirectCosts ? 'costo total' : 'desarrollo + imprevistos'}`} />
           </Group>
           {sc.surcharge > 0 && (
             <Group title="Recargos">
@@ -86,12 +87,14 @@ export function Summary({ state, set, result }: { state: ProjectState; set: Upda
             </Group>
           )}
           <Group title="Impuestos">
-            <Line label="Impuestos estimados" color={PART_COLORS.taxes} value={money.fmt(sc.taxes)} detail={`${taxPct}% del precio facturado`} />
+            <Line label="Impuestos estimados" color={PART_COLORS.taxes} value={money.fmt(sc.taxes)} detail={`${taxPct}% del precio sin IVA, después del descuento`} />
+            {sc.vat > 0 && <Line label="IVA" value={money.fmt(sc.vat)} detail={`${state.taskPricing.vatPct}% sobre el importe con descuento`} />}
             {sc.rounding > 0.005 && <Line label="Ajuste por redondeo" color={PART_COLORS.rounding} value={money.fmt(sc.rounding)} detail="Queda como ganancia" />}
           </Group>
+          {sc.discount > 0 && <Group title="Descuento comercial"><Line label="Reducción del ingreso antes de impuestos" value={money.fmt(sc.discountNet)} detail={`Descuento al cliente: ${money.fmt(sc.discount)} (${state.taskPricing.discountPct}%)`} sign="−" /></Group>}
           <div className="flex items-center justify-between border-t-2 border-slate-200 pt-3 text-base font-bold text-slate-900">
             <span>Total</span>
-            <span className="tabular-nums">{money.fmt(sc.price)}</span>
+            <span className="tabular-nums">{money.fmt(sc.price, 2)}</span>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-2 text-center">
             <div className="rounded-lg bg-emerald-50 p-2">
@@ -106,7 +109,7 @@ export function Summary({ state, set, result }: { state: ProjectState; set: Upda
             </div>
           </div>
           <p className="pt-1 text-[11px] leading-snug text-slate-400">
-            Tu ingreso deseado ya está dentro del costo de desarrollo. La ganancia es adicional a ese ingreso.
+            {state.estimationMode === 'tasks' ? `${state.taskPricing.useUniformRate ? 'Todas las tareas y horas de riesgo usan la tarifa única. ' : 'Las tareas con tarifa propia usan ese valor como costo por hora. '}La ganancia neta incluye urgencia, descuento y redondeo, y excluye IVA e impuestos.` : 'Tu ingreso deseado ya está dentro del costo de desarrollo. La ganancia es adicional a ese ingreso.'}
           </p>
         </div>
       </div>

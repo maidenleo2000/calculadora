@@ -11,6 +11,7 @@ export const PART_COLORS = {
   surcharge: '#f59e0b',
   taxes: '#94a3b8',
   rounding: '#6ee7b7',
+  vat: '#c084fc',
 } as const;
 
 type PartKey = keyof typeof PART_COLORS;
@@ -23,6 +24,7 @@ export const PART_LABELS: Record<PartKey, string> = {
   surcharge: 'Recargo urgencia',
   taxes: 'Impuestos',
   rounding: 'Redondeo',
+  vat: 'IVA',
 };
 
 const partsOf = (s: Scenario) =>
@@ -51,8 +53,8 @@ function Donut({ scenario }: { scenario: Scenario }) {
             offset += len;
             return el;
           })}
-        <text x="90" y="84" textAnchor="middle" className="fill-slate-500 text-[10px]">Precio</text>
-        <text x="90" y="102" textAnchor="middle" className="fill-slate-900 text-[13px] font-bold">{money.fmt(scenario.price)}</text>
+        <text x="90" y="84" textAnchor="middle" className="fill-slate-500 text-[10px]">{scenario.discount > 0 ? 'Suma de conceptos' : 'Precio'}</text>
+        <text x="90" y="102" textAnchor="middle" className="fill-slate-900 text-[13px] font-bold">{money.fmt(total)}</text>
       </svg>
       <ul className="w-full space-y-1.5 text-sm">
         {parts.map((p) => (
@@ -66,6 +68,7 @@ function Donut({ scenario }: { scenario: Scenario }) {
             </span>
           </li>
         ))}
+        {scenario.discount > 0 && <li className="flex justify-between gap-3 border-t border-slate-200 pt-2 text-rose-600"><span>Descuento sin impuestos</span><span>−{money.fmt(scenario.discountNet)}</span></li>}
       </ul>
     </div>
   );
@@ -100,12 +103,12 @@ function ScenarioBars({ result, selected, onSelect }: { result: CalcResult; sele
         <button key={s.id} type="button" onClick={() => onSelect(s.id)}
           className={cx('block w-full rounded-xl p-3 text-left transition', selected === s.id ? 'bg-indigo-50 ring-2 ring-indigo-500/30' : 'hover:bg-slate-50')}>
           <div className="mb-1.5 flex items-baseline justify-between">
-            <span className="text-sm font-semibold text-slate-800">{s.label} <span className="font-normal text-slate-400">· margen {s.marginPct}%</span></span>
+            <span className="text-sm font-semibold text-slate-800">{s.label} <span className="font-normal text-slate-400">· ganancia {money.fmt(s.margin)}</span></span>
             <span className="font-bold tabular-nums text-slate-900">{money.fmt(s.price)}</span>
           </div>
           <div className="flex h-3 overflow-hidden rounded-full bg-slate-100" style={{ width: `${(s.price / max) * 100}%` }}>
             {partsOf(s).map((p) => (
-              <span key={p.key} title={`${PART_LABELS[p.key]}: ${money.fmt(p.value)}`} style={{ width: `${(p.value / s.price) * 100}%`, background: PART_COLORS[p.key] }} />
+              <span key={p.key} title={`${PART_LABELS[p.key]}: ${money.fmt(p.value)}`} style={{ width: `${(p.value / (s.price + s.discountNet || 1)) * 100}%`, background: PART_COLORS[p.key] }} />
             ))}
           </div>
           <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs text-slate-500">

@@ -17,8 +17,8 @@ export function HoursSection({ state, set, result }: { state: ProjectState; set:
     <Card
       title="Estimación de horas por etapa"
       icon={<Clock className="h-4 w-4" />}
-      subtitle="Total = (base + alcance + tecnologías) × factores + ajuste manual. Editá las horas base y los ajustes."
-      actions={<Button variant="ghost" icon={<RotateCcw className="h-4 w-4" />} onClick={() => set((s) => ({ ...s, manualAdjust: phases() }))}>Limpiar ajustes</Button>}
+      subtitle={state.estimationMode === 'tasks' ? 'Resumen de tareas por etapa. Editá las horas y tarifas en Tareas y estimación. La reserva de riesgos se incluye en Análisis.' : 'Total = (base + alcance + tecnologías) × factores + ajuste manual. Editá las horas base y los ajustes.'}
+      actions={state.estimationMode !== 'tasks' && <Button variant="ghost" icon={<RotateCcw className="h-4 w-4" />} onClick={() => set((s) => ({ ...s, manualAdjust: phases() }))}>Limpiar ajustes</Button>}
     >
       <div className="-mx-5 overflow-x-auto px-5">
         <table className="w-full min-w-[760px] text-sm">
@@ -44,7 +44,7 @@ export function HoursSection({ state, set, result }: { state: ProjectState; set:
                     <div className="text-xs text-slate-400">{meta.hint}</div>
                   </td>
                   <td className="px-1 py-1">
-                    <NumberField compact ariaLabel={`Horas base ${p.label}`} value={state.baseHours[p.id]} max={2000}
+                    <NumberField compact disabled={state.estimationMode === 'tasks'} ariaLabel={`Horas base ${p.label}`} value={state.estimationMode === 'tasks' ? p.base : state.baseHours[p.id]} max={2000}
                       onChange={(v) => set((s) => ({ ...s, baseHours: { ...s.baseHours, [p.id]: v } }))} />
                   </td>
                   <td className="px-2 text-right tabular-nums">{signed(p.scope)}</td>
@@ -54,11 +54,11 @@ export function HoursSection({ state, set, result }: { state: ProjectState; set:
                     {p.factor !== 1 && <span className="ml-1 text-xs text-slate-400">×{formatNumber(p.factor, 2)}</span>}
                   </td>
                   <td className="px-1 py-1">
-                    <NumberField compact ariaLabel={`Ajuste ${p.label}`} value={state.manualAdjust[p.id]} min={-2000} max={2000}
+                    <NumberField compact disabled={state.estimationMode === 'tasks'} ariaLabel={`Ajuste ${p.label}`} value={state.estimationMode === 'tasks' ? p.manual : state.manualAdjust[p.id]} min={-2000} max={2000}
                       onChange={(v) => set((s) => ({ ...s, manualAdjust: { ...s.manualAdjust, [p.id]: v } }))} />
                   </td>
                   <td className="px-2 text-right font-semibold tabular-nums text-slate-900">{formatNumber(p.total)} h</td>
-                  <td className="px-2 text-right tabular-nums text-slate-500">{money.fmt(p.total * result.rates.costRate)}</td>
+                  <td className="px-2 text-right tabular-nums text-slate-500">{money.fmt(p.labor)}</td>
                 </tr>
               );
             })}
@@ -78,7 +78,7 @@ export function HoursSection({ state, set, result }: { state: ProjectState; set:
         </table>
       </div>
       <p className="mt-3 text-xs text-slate-500">
-        Costo = horas × tarifa base ({money.fmt(result.rates.costRate, 2)}/h). Es costo de desarrollo, sin imprevistos, margen ni impuestos.
+        {state.estimationMode === 'tasks' && !state.taskPricing.useUniformRate ? 'Costo = suma de horas × tarifa de cada tarea + horas de riesgo. ' : `Costo = horas × tarifa base (${money.fmt(result.rates.costRate, 2)}/h). `}Es costo de desarrollo, sin imprevistos, margen ni impuestos.
         Plazo estimado con tu capacidad facturable: ~{result.suggestedWeeks} semanas.
       </p>
     </Card>

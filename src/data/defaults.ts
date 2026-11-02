@@ -1,5 +1,6 @@
 import type { EstimationParams, ProjectState, ProjectTypeId } from '../types';
 import { DEFAULT_TECHNOLOGIES, PROJECT_TYPES, phases } from './catalog';
+import { DEFAULT_SAAS, DEFAULT_TASK_PRICING } from './templates';
 
 export const DEFAULT_PARAMS: EstimationParams = {
   perScreen: { uxui: 2.5, frontend: 4, testing: 0.5 },
@@ -33,6 +34,10 @@ function typeDefaults(id: ProjectTypeId) {
 export function createExampleState(): ProjectState {
   return {
     version: 1,
+    estimationMode: 'automatic',
+    tasks: [],
+    taskPricing: { ...DEFAULT_TASK_PRICING },
+    saas: structuredClone(DEFAULT_SAAS),
     ...typeDefaults('ecommerce'),
     complexity: 'medium',
     customization: 'standard',
@@ -65,6 +70,7 @@ export function createExampleState(): ProjectState {
     currency: { base: 'USD', display: 'USD', arsPerUsd: null, rateNote: '' },
     params: structuredClone(DEFAULT_PARAMS),
     quote: {
+      providerAddress: '', providerTaxId: '', clientAddress: '', clientTaxId: '', clientPhone: '',
       providerName: 'LS Nexo Digital',
       providerContact: 'info@lsnexodigital.com.ar',
       clientName: 'María Gómez',

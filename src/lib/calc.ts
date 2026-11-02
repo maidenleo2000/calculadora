@@ -1,4 +1,5 @@
 import { CUSTOMIZABLE_PHASES, PHASES, phases } from '../data/catalog';
+import { resolveHourlyRate, taskHours, validTask } from './templates';
 import type {
   Currency,
   EstimationParams,
@@ -32,6 +33,7 @@ import type {
  */
 
 export interface PhaseRow {
+  labor: number;
   id: PhaseId;
   label: string;
   base: number;
@@ -58,6 +60,10 @@ export interface DirectCostLine {
 }
 
 export interface Scenario {
+  discountNet: number;
+  discount: number;
+  vat: number;
+  beforeDiscount: number;
   id: ScenarioId;
   label: string;
   marginPct: number;
@@ -71,11 +77,11 @@ export interface Scenario {
   taxes: number;
   rounding: number;
   price: number;
-  /** Ganancia por encima de tu ingreso deseado: margen + redondeo. */
+  /** Ganancia adicional: margen + urgencia + redondeo − descuento neto de impuestos. */
   profit: number;
   marginOnPrice: number;
   effectiveHourly: number;
-  /** Partes del precio para mostrar al cliente. */
+  /** Partes del subtotal para el cliente, antes de descuento e IVA. */
   client: { services: number; thirdParty: number; urgency: number };
 }
 
@@ -112,6 +118,12 @@ export const SCENARIO_LABELS: Record<ScenarioId, string> = {
 const MAX_TAX = 90;
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Distribuye el total mostrado a centavos, sin que anticipo + saldo difieran del total. */
+export function splitPayment(price: number, depositPct: number) {
+  const total = round2(price);
+  const deposit = round2(total * Math.min(100, Math.max(0, depositPct)) / 100);
+  return { total, deposit, balance: round2(total - deposit) };
+}
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const num = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) ? n : 0);
 
@@ -158,6 +170,9 @@ export function calculate(s: ProjectState): CalcResult {
   const cf = num(params.complexity[s.complexity]) || 1;
   const kf = num(params.customization[s.customization]) || 1;
 
+  const taskMode = s.estimationMode === 'tasks';
+  const validTasks = s.tasks.filter(validTask);
+  if (taskMode && validTasks.length !== s.tasks.length) warnings.push('Hay tareas con tiempos o tarifas inválidos. Revisá que optimista ≤ probable ≤ pesimista. Esas tareas no se incluyen en el total.');
   const phaseRows: PhaseRow[] = PHASES.map(({ id, label }) => {
     const base = num(s.baseHours[id]);
     const subtotal = base + sh[id] + th[id];
@@ -165,6 +180,7 @@ export function calculate(s: ProjectState): CalcResult {
     const adjusted = subtotal * factor;
     const manual = num(s.manualAdjust[id]);
     return {
+      labor: 0,
       id,
       label,
       base,
@@ -177,7 +193,16 @@ export function calculate(s: ProjectState): CalcResult {
       total: Math.max(0, round1(adjusted + manual)),
     };
   });
-  const totalHours = round1(phaseRows.reduce((a, p) => a + p.total, 0));
+  if (taskMode) {
+    for (const row of phaseRows) {
+      const hours = validTasks.filter((task) => task.phase === row.id).reduce((sum, task) => sum + taskHours(task), 0);
+      Object.assign(row, { base: hours, scope: 0, tech: 0, subtotal: hours, factor: 1, factorDelta: 0, manual: 0, total: hours });
+    }
+    const riskRow = phaseRows.find((row) => row.id === 'analysis')!;
+    riskRow.manual = Math.max(0, num(s.taskPricing.riskHours));
+    riskRow.total += riskRow.manual;
+  }
+  const totalHours = (taskMode ? round2 : round1)(phaseRows.reduce((a, p) => a + p.total, 0));
   if (totalHours <= 0) warnings.push('El proyecto no tiene horas estimadas.');
 
   // ---- Tarifas ----
@@ -185,6 +210,12 @@ export function calculate(s: ProjectState): CalcResult {
   const billable = num(rate.billableHoursPerMonth);
   const autoCostRate = billable > 0 ? (num(rate.desiredMonthlyIncome) + num(rate.monthlyExpenses)) / billable : 0;
   const costRate = rate.mode === 'manual' ? num(rate.manualHourlyRate) : autoCostRate;
+  for (const row of phaseRows) {
+    row.labor = taskMode
+      ? validTasks.filter((task) => task.phase === row.id).reduce((sum, task) => sum + taskHours(task) * resolveHourlyRate(task.hourlyRate, costRate, s.taskPricing.useUniformRate), 0)
+        + (row.id === 'analysis' ? Math.max(0, num(s.taskPricing.riskHours)) * resolveHourlyRate(s.taskPricing.riskHourlyRate, costRate, s.taskPricing.useUniformRate) : 0)
+      : row.total * costRate;
+  }
   const m = num(pricing.marginPct) / 100;
   const mp = num(pricing.premiumMarginPct) / 100;
 
@@ -233,24 +264,34 @@ export function calculate(s: ProjectState): CalcResult {
     warnings.push('Hay costos en otra moneda y no cargaste la cotización: esos costos no se están sumando.');
 
   // ---- Escenarios ----
-  const labor = totalHours * costRate;
+  const labor = phaseRows.reduce((sum, row) => sum + row.labor, 0);
   const contingency = labor * (num(pricing.contingencyPct) / 100);
   const service = labor + contingency;
   const u = num(params.urgency[s.urgency]) / 100;
 
   const build = (id: ScenarioId, marginPct: number): Scenario => {
     const mm = marginPct / 100;
-    const margin = service * mm + (pricing.marginOnDirectCosts ? direct * mm : 0);
-    const surcharge = service * (1 + mm) * u;
+    const fixedManagement = taskMode && s.taskPricing.managementMode === 'fixed';
+    const marginBase = service + (pricing.marginOnDirectCosts ? direct : 0);
+    const margin = fixedManagement
+      ? (id === 'minimum' ? 0 : Math.max(0, num(s.taskPricing.managementFixed)) + (id === 'premium' ? marginBase * mm : 0))
+      : marginBase * mm;
+    const surcharge = (service + (fixedManagement ? margin : service * mm)) * u;
     const totalCost = service + direct;
     const preTax = totalCost + margin + surcharge;
-    const exact = t < 1 ? preTax / (1 - t) : preTax;
+    const beforeDiscount = preTax / (1 - t);
+    const discount = beforeDiscount * Math.min(100, Math.max(0, num(s.taskPricing.discountPct))) / 100;
+    const v = Math.max(0, num(s.taskPricing.vatPct)) / 100;
+    const discounted = beforeDiscount - discount;
+    const exact = discounted * (1 + v);
     const price = ceilTo(exact, num(pricing.rounding));
-    const taxes = price * t;
-    const rounding = price - taxes - preTax;
-    const thirdParty = (direct * (1 + (pricing.marginOnDirectCosts ? mm : 0))) / (1 - t);
+    const vat = price - price / (1 + v);
+    const taxes = (price - vat) * t;
+    const rounding = (price - exact) / (1 + v) * (1 - t);
+    const thirdParty = (direct * (1 + (!fixedManagement && pricing.marginOnDirectCosts ? mm : 0))) / (1 - t);
     const urgency = surcharge / (1 - t);
     return {
+      discount, discountNet: discount * (1 - t), vat, beforeDiscount,
       id,
       label: SCENARIO_LABELS[id],
       marginPct,
@@ -264,10 +305,10 @@ export function calculate(s: ProjectState): CalcResult {
       taxes,
       rounding,
       price,
-      profit: margin + rounding,
-      marginOnPrice: price > 0 ? (margin + rounding) / price : 0,
+      profit: margin + surcharge + rounding - discount * (1 - t),
+      marginOnPrice: price > 0 ? (margin + surcharge + rounding - discount * (1 - t)) / price : 0,
       effectiveHourly: totalHours > 0 ? price / totalHours : 0,
-      client: { services: price - thirdParty - urgency, thirdParty, urgency },
+      client: { services: beforeDiscount + (price - exact) / (1 + v) - thirdParty - urgency, thirdParty, urgency },
     };
   };
 
@@ -277,6 +318,8 @@ export function calculate(s: ProjectState): CalcResult {
     premium: build('premium', num(pricing.premiumMarginPct)),
   };
   if (mp < m) warnings.push('El margen premium es menor que el recomendado.');
+  const selected = scenarios[pricing.selectedScenario] ?? scenarios.recommended;
+  if (selected.profit < -0.005) warnings.push('El descuento deja el precio por debajo del costo previsto. Revisá el descuento o la ganancia.');
 
   // ---- Mantenimiento mensual (aparte del proyecto) ----
   const maintenanceMonthly =
@@ -297,7 +340,7 @@ export function calculate(s: ProjectState): CalcResult {
     },
     direct: { lines, oneTime, recurringMonthly, total: direct, missingRate },
     scenarios,
-    selected: scenarios[pricing.selectedScenario] ?? scenarios.recommended,
+    selected,
     maintenanceMonthly,
     suggestedWeeks,
     warnings,

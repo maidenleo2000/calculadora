@@ -4,6 +4,7 @@ import { convert } from '../../lib/calc';
 import { useMoney } from '../../lib/money';
 import type { Currency, ProjectState, RateSettings, Updater } from '../../types';
 import { Card, NumberField, Segmented, TextField } from '../ui';
+import { UniformRateControl } from '../UniformRateControl';
 
 export function RateSection({ state, set, result }: { state: ProjectState; set: Updater; result: CalcResult }) {
   const money = useMoney();
@@ -26,12 +27,20 @@ export function RateSection({ state, set, result }: { state: ProjectState; set: 
           monthlyExpenses: Math.round(s.rate.monthlyExpenses * k),
           manualHourlyRate: Math.round(s.rate.manualHourlyRate * k * 100) / 100,
         },
+        tasks: s.tasks.map((task) => ({ ...task, hourlyRate: task.hourlyRate === null ? null : task.hourlyRate * k })),
+        taskPricing: { ...s.taskPricing, managementFixed: s.taskPricing.managementFixed * k,
+          riskHourlyRate: s.taskPricing.riskHourlyRate === null ? null : s.taskPricing.riskHourlyRate * k },
+        saas: { ...s.saas, developmentCost: s.saas.developmentCost * k,
+          infrastructureMonthly: s.saas.infrastructureMonthly * k, supportHourlyRate: s.saas.supportHourlyRate * k,
+          extraHourlyRate: s.saas.extraHourlyRate * k, otherExtras: s.saas.otherExtras * k,
+          rounding: s.saas.rounding * k, plans: s.saas.plans.map((p) => ({ ...p, variableCost: p.variableCost * k })) },
       };
     });
   const hasRate = !!state.currency.arsPerUsd && state.currency.arsPerUsd > 0;
 
   return (
     <div className="space-y-5">
+      <UniformRateControl state={state} set={set} result={result} />
       <Card title="Tarifa por hora" icon={<Wallet className="h-4 w-4" />} subtitle="Calculala desde tus números o ingresala manualmente.">
         <div className="mb-5">
           <Segmented
@@ -69,6 +78,7 @@ export function RateSection({ state, set, result }: { state: ProjectState; set: 
             <RateStep label="Premium" value={money.fmt(result.rates.premiumBilled, 2)} formula={`margen ${state.pricing.premiumMarginPct}%`} arrow />
           </div>
           <p className="mt-3 text-xs text-slate-500">
+            {state.estimationMode === 'tasks' && <>{state.taskPricing.useUniformRate ? 'Todas las tareas y horas de riesgo usan la tarifa base. ' : 'Las tareas con tarifa propia usan su propio precio por hora. Esta escalera es una referencia para la tarifa base. '}</>}
             La tarifa base ya incluye tu ingreso y gastos. El margen ({Math.round(m * 100)}%) y los impuestos ({Math.round(t * 1000) / 10}%) se aplican
             una sola vez sobre el proyecto; por eso no se suman a la tarifa base del cálculo.
             {r.mode === 'manual' && result.rates.autoCostRate > 0 && <> Tarifa calculada desde tus ingresos: {money.fmt(result.rates.autoCostRate, 2)}/h.</>}
@@ -87,7 +97,7 @@ export function RateSection({ state, set, result }: { state: ProjectState; set: 
             <span className="mb-1 block text-sm font-medium text-slate-700">Moneda base (en la que cargás tus valores)</span>
             <Segmented<Currency> value={base} onChange={changeBase}
               options={[{ value: 'USD', label: 'USD', disabled: !hasRate && base !== 'USD' }, { value: 'ARS', label: 'ARS', disabled: !hasRate && base !== 'ARS' }]} />
-            <p className="mt-1 text-xs text-slate-500">Al cambiarla se convierten tu ingreso, gastos y tarifa manual con la cotización cargada.</p>
+            <p className="mt-1 text-xs text-slate-500">Al cambiarla se convierten ingresos, gastos, tarifas por tarea, gestión fija e importes SaaS. Los costos de terceros conservan su moneda.</p>
           </div>
           <div>
             <span className="mb-1 block text-sm font-medium text-slate-700">Mostrar resultados en</span>

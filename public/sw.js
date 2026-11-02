@@ -1,5 +1,5 @@
 // Service worker del Cotizador: permite instalar la app y usarla sin conexión.
-const CACHE = 'cotizador-v1';
+const CACHE = 'cotizador-v2';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
