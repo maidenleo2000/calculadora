@@ -19,7 +19,6 @@ import { TasksSection } from './components/sections/TasksSection';
 import { SaaSSection } from './components/sections/SaaSSection';
 import { HelpSection } from './components/sections/HelpSection';
 import { Button, Segmented, Stat, cx } from './components/ui';
-import { PROJECT_TYPES } from './data/catalog';
 import { createBlankState, createExampleState } from './data/defaults';
 import { calculate } from './lib/calc';
 import { MoneyContext, formatNumber, makeMoney } from './lib/money';
@@ -57,7 +56,6 @@ export default function App() {
   const hasRate = !!state.currency.arsPerUsd;
   const selectScenario = (id: ScenarioId) => set((s) => ({ ...s, pricing: { ...s.pricing, selectedScenario: id } }));
   const sc = result.selected;
-  const typeName = PROJECT_TYPES.find((p) => p.id === state.projectType)?.name;
 
   const props = { state, set, result };
   const showProjectSummary = tab !== 'saas' && tab !== 'help';
@@ -72,7 +70,6 @@ export default function App() {
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-widest text-indigo-600">LS Nexo Digital</div>
                 <h1 className="text-base font-bold leading-tight text-slate-900">Calculadora de presupuestos</h1>
-                <p className="text-xs text-slate-500">{state.quote.projectName || 'Proyecto sin nombre'} · {typeName}</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">

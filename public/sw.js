@@ -20,6 +20,9 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
+  // Los módulos de Vite cambian durante el desarrollo y nunca deben cachearse.
+  if (/^\/(?:src\/|node_modules\/|@vite\/|@react-refresh|@id\/|@fs\/)/.test(url.pathname)) return;
+
   // Páginas: primero la red (para tomar actualizaciones), si no hay conexión, la copia guardada.
   if (req.mode === 'navigate') {
     event.respondWith(
